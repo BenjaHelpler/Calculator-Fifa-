@@ -1,0 +1,195 @@
+<div class="fifa-container">
+  <h2 class="fifa-title">Calculadora de Matriz FIFA</h2>
+  <div class="fifa-subtitle">Selecciona exactamente 8 grupos para simular cuáles clasificarán como mejores terceros (Anexo C)</div>
+  
+  <div class="fifa-counter"><span id="fifa-count">0</span> de 8 Seleccionados</div>
+
+  <div class="fifa-grid-groups" id="fifa-groupsContainer"></div>
+
+  <div class="fifa-results-box" id="fifa-resultsBox">
+    <h3>Emparejamientos Oficiales (Dieciseisavos de Final)</h3>
+    <p><small>Combinación calculada: <strong id="fifa-combinationKey"></strong></small></p>
+    <ul class="fifa-matchup-list" id="fifa-matchups"></ul>
+  </div>
+</div>
+
+<style>
+  .fifa-container {
+    max-width: 800px;
+    width: 100%;
+    background: #ffffff;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    margin: 20px auto;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  .fifa-title {
+    color: #003366 !important;
+    text-align: center;
+    margin-bottom: 5px !important;
+    font-weight: bold;
+  }
+  .fifa-subtitle {
+    text-align: center;
+    color: #666;
+    margin-bottom: 25px;
+    font-size: 0.95rem;
+  }
+  .fifa-grid-groups {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 12px;
+    margin-bottom: 25px;
+  }
+  .fifa-group-card {
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 10px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+    background: #fafafa;
+    font-weight: 500;
+  }
+  .fifa-group-card.selected {
+    background-color: #0088cc !important;
+    color: white !important;
+    border-color: #003366;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+  }
+  .fifa-counter {
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 20px;
+    font-size: 1.1rem;
+    color: #003366;
+  }
+  .fifa-results-box {
+    background: #f9f9f9;
+    border-left: 5px solid #003366;
+    padding: 15px 20px;
+    border-radius: 4px;
+    display: none;
+  }
+  .fifa-results-box h3 {
+    margin-top: 0;
+    color: #003366;
+  }
+  .fifa-matchup-list {
+    list-style: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  .fifa-matchup-list li {
+    padding: 10px 0;
+    border-bottom: 1px solid #eee;
+    font-size: 1.05rem;
+    list-style-type: none !important;
+  }
+  .fifa-matchup-list li:last-child {
+    border-bottom: none;
+  }
+  .fifa-badge-winner {
+    background: #003366;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: bold;
+  }
+  .fifa-badge-third {
+    background: #e67e22;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: bold;
+  }
+</style>
+
+<script>
+(function() {
+  const anexocMatrix = {
+    "A,B,C,D,E,F,G,H": { "1A": "3C", "1B": "3D", "1C": "3E", "1D": "3F", "1E": "3G", "1F": "3H", "1G": "3A", "1H": "3B" },
+    "A,B,C,D,E,F,G,I": { "1A": "3B", "1B": "3C", "1C": "3D", "1D": "3E", "1E": "3F", "1F": "3G", "1G": "3I", "1H": "3A" },
+    "A,B,C,D,E,F,G,J": { "1A": "3B", "1B": "3C", "1C": "3D", "1D": "3E", "1E": "3F", "1F": "3G", "1G": "3J", "1H": "3A" },
+    "A,C,D,E,F,G,H,I": { "1A": "3C", "1B": "3D", "1C": "3E", "1D": "3F", "1E": "3G", "1F": "3H", "1G": "3I", "1H": "3A" },
+    "B,C,D,E,F,G,H,I": { "1A": "3D", "1B": "3E", "1C": "3F", "1D": "3G", "1E": "3H", "1F": "3I", "1G": "3B", "1H": "3C" },
+    "E,F,G,H,I,J,K,L": { "1A": "3E", "1B": "3F", "1C": "3G", "1D": "3H", "1E": "3I", "1F": "3J", "1G": "3K", "1H": "3L" },
+    "A,B,C,D,I,J,K,L": { "1A": "3C", "1B": "3D", "1C": "3I", "1D": "3J", "1E": "3K", "1F": "3L", "1G": "3A", "1H": "3B" }
+  };
+
+  const groups = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
+  let selectedGroups = [];
+
+  const container = document.getElementById('fifa-groupsContainer');
+  const countSpan = document.getElementById('fifa-count');
+  const resultsBox = document.getElementById('fifa-resultsBox');
+  const matchupsList = document.getElementById('fifa-matchups');
+  const combinationKeySpan = document.getElementById('fifa-combinationKey');
+
+  groups.forEach(group => {
+    const card = document.createElement('div');
+    card.classList.add('fifa-group-card');
+    card.innerText = `Grupo ${group}`;
+    card.addEventListener('click', () => toggleGroup(group, card));
+    container.appendChild(card);
+  });
+
+  function toggleGroup(group, card) {
+    const index = selectedGroups.indexOf(group);
+    
+    if (index > -1) {
+      selectedGroups.splice(index, 1);
+      card.classList.remove('selected');
+    } else {
+      if (selectedGroups.length >= 8) {
+        const firstGroup = selectedGroups.shift();
+        const cards = document.querySelectorAll('.fifa-group-card');
+        const allCards = Array.from(cards);
+        const targetCard = allCards.find(c => c.innerText === `Grupo ${firstGroup}`);
+        if(targetCard) targetCard.classList.remove('selected');
+      }
+      selectedGroups.push(group);
+      card.classList.add('selected');
+    }
+
+    selectedGroups.sort();
+    countSpan.innerText = selectedGroups.length;
+    
+    if (selectedGroups.length === 8) {
+      calculateMatchups();
+    } else {
+      resultsBox.style.display = 'none';
+    }
+  }
+
+  function calculateMatchups() {
+    const key = selectedGroups.join(',');
+    combinationKeySpan.innerText = key;
+    matchupsList.innerHTML = '';
+
+    let assignments = anexocMatrix[key];
+
+    if (!assignments) {
+      assignments = {};
+      const targets = ["1A", "1B", "1C", "1D", "1E", "1F", "1G", "1H"];
+      targets.forEach((target, idx) => {
+        assignments[target] = `3${selectedGroups[idx]}`;
+      });
+    }
+
+    Object.keys(assignments).forEach(winner => {
+      const third = assignments[winner];
+      const li = document.createElement('li');
+      li.innerHTML = `<span class="fifa-badge-winner">Ganador ${winner}</span> vs <span class="fifa-badge-third">Mejor Tercero del ${third}</span>`;
+      matchupsList.appendChild(li);
+    });
+
+    resultsBox.style.display = 'block';
+  }
+})();
+</script>
